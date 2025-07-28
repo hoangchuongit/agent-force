@@ -32,7 +32,8 @@ agent-force/
 │ ├── vector_memory.py # Memory wrapper per agent
 │ └── vector_store_chroma.py # Backend: ChromaDB integration
 ├── orchestrator/
-│ └── crisis.py # Coordinates multi-agent responses
+│ ├── crisis.py         # Coordinates multi-agent responses
+│ └── deliberation.py   # Multi-agent debate & consensus controller
 ├── services/
 │ └── llm_client.py # OpenAI wrapper (chat & stream)
 ├── config.py # ✅ Loads .env config vars

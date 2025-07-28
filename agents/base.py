@@ -1,4 +1,3 @@
-
 import re
 import asyncio, functools
 from typing import Optional
@@ -96,5 +95,34 @@ class BaseAgent:
                 f"Ký ức liên quan:\n{related}\n"
                 f"Hãy phản hồi phù hợp với vai trò và ký ức bạn có."
             )
+        async for chunk in self.llm.chat_stream(prompt):
+            yield chunk
+
+    def build_review_prompt(self, peer_outputs: dict) -> str:
+        peer_view = "\n\n".join(f"- {name}:\n{text}" for name, text in peer_outputs.items())
+
+        return (
+            f"Bạn là {self.name} – chuyên gia trong lĩnh vực {self.role}.\n\n"
+            f"Các bộ phận khác đã đưa ra các ý kiến sau:\n{peer_view}\n\n"
+            "🎯 Yêu cầu:\n"
+            "- Nếu **đồng thuận hoàn toàn**, chỉ cần viết: 'Tôi đồng thuận với các ý kiến trên.'\n"
+            "- Nếu có **phản biện**, chỉ nêu rõ các điểm cụ thể cần góp ý.\n"
+            "- Không tóm tắt lại ý kiến của người khác. Không viết lại toàn bộ nội dung.\n"
+            "- Tránh dài dòng. Trả lời súc tích như một chuyên gia.\n\n"
+            "✍️ Phản hồi của bạn:"
+        )
+
+    async def review_peer_outputs(self, peer_outputs: dict):
+        prompt = self.build_review_prompt(peer_outputs)
+        async for chunk in self.llm.chat_stream(prompt):
+            yield chunk
+
+    async def propose_final_action(self, peer_outputs: dict):
+        opinions_text = "\n".join(f"{name}:\n{text}" for name, text in peer_outputs.items())
+        prompt = (
+            f"Bạn là {self.role}. Sau đây là các ý kiến từ các bộ phận liên quan trong cuộc họp xử lý khủng hoảng:\n\n"
+            f"{opinions_text}\n\n"
+            f"Dựa trên các ý kiến này, bạn hãy đề xuất phương án hành động cuối cùng (1–3 bước cụ thể) từ góc nhìn của mình."
+        )
         async for chunk in self.llm.chat_stream(prompt):
             yield chunk
