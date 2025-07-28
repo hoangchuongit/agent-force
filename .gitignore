@@ -1,9 +1,45 @@
+# ❌ Environment variables & API keys
 .env
+*.env
+
+# 🧠 Python cache & build artifacts
 __pycache__/
-.vscode/
-*.pyc
+*.py[cod]
+*.so
+*.egg-info/
+build/
+dist/
+
+# 🧪 Test cache
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+
+# 📁 IDE & virtual environment
+.idea/
+.venv/
+venv/
+.envrc
+
+# 🧠 Vector DB / database files
+.chroma/
 *.sqlite3
-chromadb/
-.venv
-venv
-.pytest_cache
+*.db
+
+# 🔍 Jupyter metadata (if using notebooks)
+.ipynb_checkpoints/
+
+# ⚙️ Logs & temporary files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# 🧪 Mock/demo output
+*_demo_output.txt
+*_debug.json
+
+# ❓ Personal notes or sensitive files
+secrets/
+notes/

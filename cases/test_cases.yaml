@@ -1,0 +1,24 @@
+
+- id: case_01
+  title: Rò rỉ dữ liệu khách hàng
+  description: Thông tin của 10.000 khách hàng bị leak lên mạng darknet.
+
+- id: case_02
+  title: Hacker tấn công hệ thống
+  description: Hệ thống thanh toán bị hacker làm gián đoạn 2 giờ, gây gián đoạn giao dịch.
+
+- id: case_03
+  title: Khách hàng dọa kiện
+  description: Khách hàng doanh nghiệp lớn đòi kiện vì giao hàng trễ hơn hợp đồng 1 tháng.
+
+- id: case_04
+  title: Tin giả lan truyền
+  description: Có tin đồn sai sự thật rằng công ty sắp phá sản đang lan truyền trên mạng xã hội.
+
+- id: case_05
+  title: Tai nạn lao động nghiêm trọng
+  description: Một nhân viên bị tai nạn nghiêm trọng tại nhà máy, báo chí đang đưa tin.
+
+- id: case_06
+  title: Chiến dịch tẩy chay thương hiệu
+  description: Hashtag #TayChayCongTyAgentForce đang lan rộng trên Twitter do cáo buộc đạo đức giả.

@@ -1,20 +1,15 @@
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
-from api.websocket_handler import handle_websocket
-from meta.scenario_injector import ScenarioInjector
 from pydantic import BaseModel
 
-from services.openai_client import OpenAIClient
-from agents.agent_registry import load_all_agents
-from core.debate_manager import DebateManager
+from orchestrator.crisis import CrisisOrchestrator
+from services.llm_client import OpenAIClient
 
 app = FastAPI()
-injector = ScenarioInjector()
-
 llm = OpenAIClient()
-agents = load_all_agents(llm)
-manager = DebateManager(agents)
+orchestrator = CrisisOrchestrator(llm)
 
+# ✅ Cho phép truy cập từ mọi nguồn
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,14 +17,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ✅ WebSocket endpoint: stream phản hồi từng dòng
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await handle_websocket(websocket, manager)
+    await websocket.accept()
+    try:
+        while True:
+            user_input = await websocket.receive_text()
+            async for chunk in orchestrator.stream(user_input):
+                await websocket.send_text(chunk)
+            await websocket.send_text("[[DONE]]")  # client biết kết thúc
+    except Exception as e:
+        await websocket.send_text(f"[LỖI WebSocket]: {e}")
+        await websocket.close()
 
-class ScenarioPayload(BaseModel):
+# ✅ API (tuỳ chọn) nếu muốn gọi orchestrator qua HTTP POST
+class CrisisInput(BaseModel):
     text: str
 
-@app.post("/scenario")
-async def submit_scenario(payload: ScenarioPayload):
-    scenario = injector.inject(payload.text)
-    return {"message": "Scenario injected", "id": scenario.id}
+@app.post("/crisis")
+async def handle_crisis(input: CrisisInput):
+    results = await orchestrator.run(input.text)
+    return results

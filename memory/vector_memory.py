@@ -1,9 +1,10 @@
+# services/memory/vector_memory.py
 from memory.vector_store_chroma import ChromaVectorStore
 
 class VectorMemory:
     def __init__(self, agent_name: str, vector_backend=None):
         self.agent_name = agent_name
-        self.vector_backend = vector_backend or ChromaVectorStore()
+        self.vector_backend = vector_backend or get_default_vector_store()
         self.local_history: list[str] = []
 
     def remember(self, content: str):
@@ -32,5 +33,11 @@ class VectorMemory:
             metadata={"type": "feedback"}
         )
 
+# ✅ Singleton để tái sử dụng 1 Chroma client chung cho nhiều agent
+_vector_store_instance = None
+
 def get_default_vector_store():
-    return ChromaVectorStore()
+    global _vector_store_instance
+    if _vector_store_instance is None:
+        _vector_store_instance = ChromaVectorStore()
+    return _vector_store_instance
