@@ -34,8 +34,9 @@ async def run_demo(case_id=None):
     
     async for result in orchestrator.run(selected["description"]):
         # Bỏ qua stream để không in từng chữ
-        if result["type"].startswith("stream_"):
-            continue
+        if (
+            result["type"].startswith("stream_")
+        ): continue
         
         prefix = f"\n🔹 [{result['type']}] {result['agent']}:"
         output = f"{prefix}\n{result['text']}\n" + "-" * 50

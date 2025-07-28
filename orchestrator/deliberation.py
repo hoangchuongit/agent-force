@@ -92,6 +92,14 @@ class DeliberationOrchestrator:
                         "text": f"✅ Tất cả agent đồng thuận sớm ở vòng {round_num+1} (chu kỳ {cycle}).",
                         "type": "final_decision"
                     }
+                    
+                    # 👉 Gọi thêm bước tổng hợp từ các phản hồi trước đó
+                    async for chunk in self.summarize_final_proposal(opinions):
+                        yield {
+                            "agent": "orchestrator",
+                            "text": chunk,
+                            "type": "final_proposal"
+                        }
                     return
 
                 opinions = round_reviews.copy()
@@ -119,3 +127,55 @@ class DeliberationOrchestrator:
             "text": "❌ Đã thử tất cả agent lead nhưng không đạt được đồng thuận.",
             "type": "final_decision_failed"
         }
+        
+        # Gọi synthesize fallback nếu có opinions
+        if opinions:
+            async for chunk in self.synthesize_best_effort(opinions):
+                yield {
+                    "agent": "orchestrator",
+                    "text": chunk,
+                    "type": "final_fallback_summary"
+                }
+        
+    async def summarize_final_proposal(self, opinions: dict) -> str:
+        merged = "\n\n".join([f"{agent}:\n{content}" for agent, content in opinions.items()])
+
+        prompt = (
+            "Tình huống: Các bộ phận chuyên môn đã hoàn toàn đồng thuận sau nhiều vòng phản biện.\n"
+            "Dưới đây là các ý kiến cuối cùng của từng bộ phận:\n\n"
+            f"{merged}\n\n"
+            "🎯 Yêu cầu:\n"
+            "- Tổng hợp các ý kiến trên thành **một bản đề xuất hành động thống nhất**.\n"
+            "- Ngắn gọn, rõ ràng, mang tính thực thi cao.\n"
+            "- Dùng giọng văn chuyên nghiệp, nhất quán, phù hợp để gửi cho khách hàng, đối tác hoặc công bố nội bộ.\n"
+            "- Tránh lặp lại, không liệt kê theo agent. Không cần nói 'PRAgent nói rằng...'\n"
+            "- Nếu phù hợp, hãy viết dưới dạng thông báo chính thức hoặc email dự thảo.\n\n"
+            "✍️ Bắt đầu bản đề xuất:"
+        )
+
+        # Header mở đầu
+        yield "📄 Bản đề xuất thống nhất:\n"
+        # Stream nội dung từ LLM
+        async for chunk in self.llm_client.chat_stream(prompt):
+            yield chunk
+    
+    
+    async def synthesize_best_effort(self, opinions: dict) -> str:
+        merged = "\n\n".join(f"{agent}:\n{text}" for agent, text in opinions.items())
+
+        prompt = (
+            "Bối cảnh: Hệ thống AI gồm nhiều bộ phận chuyên môn (PR, Pháp lý, Tài chính, Vận hành) đã tranh luận nhiều vòng nhưng **không đạt được đồng thuận hoàn toàn**.\n"
+            "Dưới đây là các ý kiến cuối cùng của từng bộ phận:\n\n"
+            f"{merged}\n\n"
+            "🎯 Nhiệm vụ:\n"
+            "- Tổng hợp lại **các điểm chung có giá trị cao nhất**.\n"
+            "- Bỏ qua các điểm tranh cãi không thể thống nhất.\n"
+            "- Viết một **bản đề xuất hành động** rõ ràng, chuyên nghiệp, trung lập, có thể gửi cho cấp quản lý ra quyết định.\n"
+            "- Giữ văn phong khách quan, tránh quy trách nhiệm cá nhân, tránh thuật lại ai nói gì.\n"
+            "- Nếu cần, phân tách thành các phần: Tình hình – Hành động – Khuyến nghị.\n\n"
+            "✍️ Bắt đầu viết bản đề xuất:"
+        )
+
+        yield "📄 Bản đề xuất tổng hợp (fallback):\n"
+        async for chunk in self.llm_client.chat_stream(prompt):
+            yield chunk
