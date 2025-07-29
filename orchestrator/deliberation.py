@@ -5,6 +5,8 @@ from agents.roles.financeagent import FinanceAgent
 from agents.roles.opsagent import OpsAgent
 from orchestrator.action_extractor import extract_actions_stream
 from orchestrator.executor import execute_actions_stream
+from orchestrator.goal_manager import GoalManager
+
 
 class DeliberationOrchestrator:
     CONSENSUS_PHRASE = "tôi đồng thuận với các ý kiến trên."
@@ -15,16 +17,54 @@ class DeliberationOrchestrator:
             PRAgent(llm_client),
             LegalAgent(llm_client),
             FinanceAgent(llm_client),
-            OpsAgent(llm_client)
+            OpsAgent(llm_client),
         ]
+
+        default_goals = GoalManager.get_default_goals()
+        for agent in self.agents:
+            agent.set_goal(default_goals.get(agent.name, ""))
 
     def score_agents(self, context: str):
         context_lower = context.lower()
         keyword_map = {
-            "PRAgent": ["truyền thông", "khách hàng", "dư luận", "báo chí", "phản hồi", "tuyên bố", "xin lỗi"],
-            "LegalAgent": ["pháp lý", "vi phạm", "luật", "quy định", "trách nhiệm", "kiện tụng", "tuân thủ"],
-            "FinanceAgent": ["tài chính", "tiền", "thiệt hại", "bồi thường", "báo cáo", "chi phí", "lỗ", "doanh thu"],
-            "OpsAgent": ["hệ thống", "vận hành", "sự cố", "hạ tầng", "rò rỉ", "server", "kỹ thuật", "khắc phục"]
+            "PRAgent": [
+                "truyền thông",
+                "khách hàng",
+                "dư luận",
+                "báo chí",
+                "phản hồi",
+                "tuyên bố",
+                "xin lỗi",
+            ],
+            "LegalAgent": [
+                "pháp lý",
+                "vi phạm",
+                "luật",
+                "quy định",
+                "trách nhiệm",
+                "kiện tụng",
+                "tuân thủ",
+            ],
+            "FinanceAgent": [
+                "tài chính",
+                "tiền",
+                "thiệt hại",
+                "bồi thường",
+                "báo cáo",
+                "chi phí",
+                "lỗ",
+                "doanh thu",
+            ],
+            "OpsAgent": [
+                "hệ thống",
+                "vận hành",
+                "sự cố",
+                "hạ tầng",
+                "rò rỉ",
+                "server",
+                "kỹ thuật",
+                "khắc phục",
+            ],
         }
         scores = []
         for agent in self.agents:
@@ -35,22 +75,32 @@ class DeliberationOrchestrator:
         return sorted(scores, key=lambda x: x[1], reverse=True)
 
     async def run(self, context: str, max_rounds: int = 5, max_cycles: int = 2):
+        goals = GoalManager.extract_goals_from_context(context)
+        for agent in self.agents:
+            new_goal = goals.get(agent.name)
+            if new_goal:
+                agent.set_goal(new_goal)
+
         agent_scores = self.score_agents(context)
         tried_agents = set()
         cycle = 0
 
         while cycle < max_cycles:
-            lead_agent = next((a for a, _ in agent_scores if a.name not in tried_agents), None)
+            lead_agent = next(
+                (a for a, _ in agent_scores if a.name not in tried_agents), None
+            )
             if not lead_agent:
                 break
             tried_agents.add(lead_agent.name)
             cycle += 1
 
-            lead_response = await lead_agent.speak(context)
+            # 👉 Gắn thêm mục tiêu vào prompt đầu vào của agent
+            context_with_goal = lead_agent.get_goal_context() + context
+            lead_response = await lead_agent.speak(context_with_goal)
             yield {
                 "agent": lead_agent.name,
                 "text": lead_response["text"],
-                "type": "lead"
+                "type": "lead",
             }
 
             opinions = {lead_agent.name: lead_response["text"]}
@@ -62,26 +112,36 @@ class DeliberationOrchestrator:
                 for agent in self.agents:
                     try:
                         buffer = ""
-                        async for chunk in agent.review_peer_outputs(opinions):
+                        # 👉 Gắn mục tiêu vào prompt tranh luận
+                        agent_input = agent.get_goal_context() + "\n".join(
+                            [f"{k}: {v}" for k, v in opinions.items()]
+                        )
+                        async for chunk in agent.review_peer_outputs(
+                            {"full_input": agent_input}
+                        ):
                             buffer += chunk
                             yield {
                                 "agent": agent.name,
                                 "text": chunk,
-                                "type": f"stream_review_cycle_{cycle}_round_{round_num+1}"
+                                "type": f"stream_review_cycle_{cycle}_round_{round_num+1}",
                             }
                         review_text = buffer.strip()
                         round_reviews[agent.name] = review_text
-                        round_result.append({
-                            "agent": agent.name,
-                            "text": review_text,
-                            "type": f"review_cycle_{cycle}_round_{round_num+1}"
-                        })
+                        round_result.append(
+                            {
+                                "agent": agent.name,
+                                "text": review_text,
+                                "type": f"review_cycle_{cycle}_round_{round_num+1}",
+                            }
+                        )
                     except Exception as e:
-                        round_result.append({
-                            "agent": agent.name,
-                            "text": f"[LỖI khi phản biện]: {e}",
-                            "type": f"review_error_cycle_{cycle}_round_{round_num+1}"
-                        })
+                        round_result.append(
+                            {
+                                "agent": agent.name,
+                                "text": f"[LỖI khi phản biện]: {e}",
+                                "type": f"review_error_cycle_{cycle}_round_{round_num+1}",
+                            }
+                        )
 
                 for r in round_result:
                     yield r
@@ -92,57 +152,77 @@ class DeliberationOrchestrator:
                     yield {
                         "agent": "orchestrator",
                         "text": f"✅ Tất cả agent đồng thuận sớm ở vòng {round_num+1} (chu kỳ {cycle}).",
-                        "type": "final_decision"
+                        "type": "final_decision",
                     }
-                    
+
                     # 1. Tổng hợp bản đề xuất
                     final_proposal = ""
                     async for chunk in self.summarize_final_proposal(opinions):
                         final_proposal += chunk
-                        yield {"agent": "orchestrator", "text": chunk, "type": "final_proposal"}
+                        yield {
+                            "agent": "orchestrator",
+                            "text": chunk,
+                            "type": "final_proposal",
+                        }
 
                     # 2. Trích xuất hành động từ final_proposal
                     action_buffer = ""  # ✅ Khởi tạo trước khi sử dụng
-                    async for chunk in extract_actions_stream(self.llm_client, final_proposal):
+                    async for chunk in extract_actions_stream(
+                        self.llm_client, final_proposal
+                    ):
                         action_buffer += chunk
-                        yield {"agent": "orchestrator", "text": chunk, "type": "action_extraction"}
+                        yield {
+                            "agent": "orchestrator",
+                            "text": chunk,
+                            "type": "action_extraction",
+                        }
 
                     try:
                         actions = eval(action_buffer)
                     except Exception as e:
-                        yield {"agent": "orchestrator", "text": f"❌ Lỗi parse actions: {e}", "type": "error"}
+                        yield {
+                            "agent": "orchestrator",
+                            "text": f"❌ Lỗi parse actions: {e}",
+                            "type": "error",
+                        }
                         return
 
                     # 3. Thực thi hành động qua agent tương ứng
                     async for chunk in execute_actions_stream(self.llm_client, actions):
-                        yield {"agent": "orchestrator", "text": chunk, "type": "action_execution"}
+                        yield {
+                            "agent": "orchestrator",
+                            "text": chunk,
+                            "type": "action_execution",
+                        }
 
                 opinions = round_reviews.copy()
 
             # ✅ Nếu hết vòng mà vẫn chưa đồng thuận hoàn toàn → tìm đa số
             proposal_counter = Counter(opinions.values())
-            most_common = proposal_counter.most_common(1)[0] if proposal_counter else None
+            most_common = (
+                proposal_counter.most_common(1)[0] if proposal_counter else None
+            )
 
             if most_common and most_common[1] >= 3:
                 yield {
                     "agent": "orchestrator",
                     "text": f"📌 Phương án được đa số (>=3) đồng thuận sau chu kỳ {cycle}:\n{most_common[0]}",
-                    "type": "final_decision"
+                    "type": "final_decision",
                 }
                 return
             else:
                 yield {
                     "agent": "orchestrator",
                     "text": f"⚠️ Chưa đạt đồng thuận sau {max_rounds} vòng (chu kỳ {cycle}). Chuyển lead agent khác để tiếp tục tranh luận.",
-                    "type": "no_consensus"
+                    "type": "no_consensus",
                 }
 
         yield {
             "agent": "orchestrator",
             "text": "❌ Đã thử tất cả agent lead nhưng không đạt được đồng thuận.",
-            "type": "final_decision_failed"
+            "type": "final_decision_failed",
         }
-        
+
         # Gọi synthesize fallback nếu có opinions
         if opinions:
             fallback_proposal = ""
@@ -151,26 +231,42 @@ class DeliberationOrchestrator:
                 yield {
                     "agent": "orchestrator",
                     "text": chunk,
-                    "type": "final_fallback_summary"
+                    "type": "final_fallback_summary",
                 }
 
             # 👉 Phân tích hành động từ fallback_proposal
             action_buffer = ""  # ✅ Cũng cần khởi tạo tại đây
-            async for chunk in extract_actions_stream(self.llm_client, fallback_proposal):
+            async for chunk in extract_actions_stream(
+                self.llm_client, fallback_proposal
+            ):
                 action_buffer += chunk
-                yield {"agent": "orchestrator", "text": chunk, "type": "action_extraction"}
+                yield {
+                    "agent": "orchestrator",
+                    "text": chunk,
+                    "type": "action_extraction",
+                }
 
             try:
                 actions = eval(action_buffer)
             except Exception as e:
-                yield {"agent": "orchestrator", "text": f"❌ Lỗi parse fallback actions: {e}", "type": "error"}
+                yield {
+                    "agent": "orchestrator",
+                    "text": f"❌ Lỗi parse fallback actions: {e}",
+                    "type": "error",
+                }
                 return
 
             async for chunk in execute_actions_stream(self.llm_client, actions):
-                yield {"agent": "orchestrator", "text": chunk, "type": "action_execution"}
-        
+                yield {
+                    "agent": "orchestrator",
+                    "text": chunk,
+                    "type": "action_execution",
+                }
+
     async def summarize_final_proposal(self, opinions: dict) -> str:
-        merged = "\n\n".join([f"{agent}:\n{content}" for agent, content in opinions.items()])
+        merged = "\n\n".join(
+            [f"{agent}:\n{content}" for agent, content in opinions.items()]
+        )
 
         prompt = (
             "Tình huống: Các bộ phận chuyên môn đã hoàn toàn đồng thuận sau nhiều vòng phản biện.\n"
@@ -190,8 +286,7 @@ class DeliberationOrchestrator:
         # Stream nội dung từ LLM
         async for chunk in self.llm_client.chat_stream(prompt):
             yield chunk
-    
-    
+
     async def synthesize_best_effort(self, opinions: dict) -> str:
         merged = "\n\n".join(f"{agent}:\n{text}" for agent, text in opinions.items())
 

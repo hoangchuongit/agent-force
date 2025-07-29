@@ -33,9 +33,9 @@ agent-force/
 │   └── vector_store_chroma.py      # Backend: ChromaDB integration
 ├── orchestrator/
 │   ├── action_extractor.py         # Extracts executable actions from proposal
-│   ├── crisis.py                   # Coordinates multi-agent responses
 │   ├── deliberation.py             # Multi-agent debate & consensus controller
-│   └── executor.py                 # Executes assigned actions via agents
+│   ├── executor.py                 # Executes assigned actions via agents
+|   └── goal_manager.py             # Maps default & contextual goals per agent
 ├── services/
 │   └── llm_client.py               # OpenAI wrapper (chat & stream)
 ├── config.py                       # Loads .env config vars

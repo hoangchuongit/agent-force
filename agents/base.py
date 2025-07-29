@@ -12,6 +12,7 @@ class BaseAgent:
         self.traits = traits or {}
         self.memory = VectorMemory(agent_name=name)
         self.summarizer = MemorySummarizer()
+        self.goals = []
 
     def describe_personality(self) -> str:
         trait_map = {
@@ -132,4 +133,15 @@ class BaseAgent:
         yield message
         # Có thể thêm xử lý mô phỏng thực tế tại đây (gửi API, sinh nội dung, v.v.)
         yield f"✅ [{self.name}] Hoàn tất xử lý: {action['type']}"
+        
+    def set_goal(self, goal_text: str):
+        self.goals.append(goal_text)
+
+    def clear_goals(self):
+        self.goals = []
+
+    def get_goal_context(self):
+        if not self.goals:
+            return ""
+        return "Mục tiêu hiện tại của bạn là:\n" + "\n".join(f"- {g}" for g in self.goals) + "\n"
 
