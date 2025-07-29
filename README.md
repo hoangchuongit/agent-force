@@ -19,8 +19,10 @@ Ideal for demos, hackathons, or integration into B2B AI workflows.
 ```
 agent-force/
 ├── agents/
-│   ├── base.py                       # Optimized async BaseAgent with memory
+│   ├── base.py                      # Optimized async BaseAgent with memory
+│   ├── config.py                    # Agent traits & personality prompts
 │   └── roles/
+│       ├── criticalagent.py         # CriticalAgent – phản biện & kiểm tra giả định
 │       ├── financeagent.py          # Finance-specific logic & traits
 │       ├── legalagent.py            # Legal risk assessment logic
 │       ├── opsagent.py              # Ops + technical issue response
@@ -30,12 +32,12 @@ agent-force/
 ├── memory/
 │   ├── summarizer.py                # Summarize past memory entries
 │   ├── vector_memory.py             # Memory wrapper per agent
-│   └── vector_store_chroma.py      # Backend: ChromaDB integration
+│   └── vector_store_chroma.py       # Backend: ChromaDB integration
 ├── orchestrator/
 │   ├── action_extractor.py         # Extracts executable actions from proposal
-│   ├── deliberation.py             # Multi-agent debate & consensus controller
+│   ├── deliberation.py             # Multi-agent debate & consensus controller (có CriticalAgent)
 │   ├── executor.py                 # Executes assigned actions via agents
-|   └── goal_manager.py             # Maps default & contextual goals per agent
+│   └── goal_manager.py             # Maps default & contextual goals per agent
 ├── services/
 │   └── llm_client.py               # OpenAI wrapper (chat & stream)
 ├── config.py                       # Loads .env config vars

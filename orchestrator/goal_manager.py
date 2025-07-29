@@ -23,14 +23,21 @@ class GoalManager:
             "2. Đưa ra kế hoạch khắc phục theo mức độ ưu tiên (critical-path).\n"
             "3. Đảm bảo tính ổn định hệ thống và an toàn dữ liệu.\n"
             "4. Theo dõi và cảnh báo sớm nguy cơ tái phát hoặc leo thang."
-        )
+        ),
+        "Critical Agent": (
+            "1. Phát hiện lỗ hổng logic, điểm mâu thuẫn hoặc sự thiếu sót trong đề xuất.\n"
+            "2. Đặt câu hỏi phản biện sâu sắc để kiểm tra tính toàn vẹn của phương án.\n"
+            "3. Đảm bảo các giải pháp không bỏ qua rủi ro hoặc giả định sai.\n"
+            "4. Thúc đẩy tính minh bạch và tính khả thi thực tế trước khi chốt quyết định."
+        ),
     }
 
     KEYWORD_GOALS = {
         "PR Agent": ["khách hàng", "dư luận", "uy tín", "truyền thông", "tin đồn", "mạng xã hội", "phản ứng công chúng"],
         "Legal Agent": ["pháp lý", "vi phạm", "luật", "điều tra", "kiện", "tuân thủ", "đơn tố cáo", "cơ quan chức năng"],
         "Finance Agent": ["tài chính", "chi phí", "lỗ", "bồi thường", "mất tiền", "thiệt hại", "doanh thu", "hợp đồng", "đền bù"],
-        "Ops Agent": ["sự cố", "tấn công", "ddos", "server", "rò rỉ", "lỗi hệ thống", "hạ tầng", "mất dữ liệu", "downtime"]
+        "Ops Agent": ["sự cố", "tấn công", "ddos", "server", "rò rỉ", "lỗi hệ thống", "hạ tầng", "mất dữ liệu", "downtime"],
+        "Critical Agent": ["phản biện", "mâu thuẫn", "chưa rõ", "nguy cơ", "thiếu sót", "logic", "rủi ro tiềm ẩn", "chưa thuyết phục"]
     }
 
     CONTEXTUAL_GOALS = {
@@ -53,6 +60,11 @@ class GoalManager:
             "1. Xác định nhanh nguyên nhân kỹ thuật.\n"
             "2. Ưu tiên khôi phục hệ thống và bảo mật dữ liệu.\n"
             "3. Đưa ra lộ trình khắc phục cụ thể và giám sát tiến độ."
+        ),
+       "Critical Agent": (
+            "1. Kiểm tra các giả định, logic và tính đầy đủ của đề xuất.\n"
+            "2. Đặt câu hỏi phản biện để làm rõ những điểm chưa chắc chắn.\n"
+            "3. Cảnh báo rủi ro bị bỏ sót hoặc giải pháp thiếu thực tiễn."
         )
     }
 
