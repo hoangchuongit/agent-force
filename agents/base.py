@@ -126,3 +126,10 @@ class BaseAgent:
         )
         async for chunk in self.llm.chat_stream(prompt):
             yield chunk
+            
+    async def handle_action_stream(self, action: dict):
+        message = f"🤖 [{self.name}] Đang xử lý action: {action['type']} → {action.get('content', '')[:50]}..."
+        yield message
+        # Có thể thêm xử lý mô phỏng thực tế tại đây (gửi API, sinh nội dung, v.v.)
+        yield f"✅ [{self.name}] Hoàn tất xử lý: {action['type']}"
+

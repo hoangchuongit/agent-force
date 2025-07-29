@@ -19,25 +19,27 @@ Ideal for demos, hackathons, or integration into B2B AI workflows.
 ```
 agent-force/
 ├── agents/
-│ ├── base.py # ✅ Optimized async BaseAgent with memory
-│ └── roles/
-│ ├── financeagent.py # Finance-specific logic & traits
-│ ├── legalagent.py # Legal risk assessment logic
-│ ├── opsagent.py # Ops + technical issue response
-│ └── pragent.py # PR & media sentiment strategy
+│   ├── base.py                       # Optimized async BaseAgent with memory
+│   └── roles/
+│       ├── financeagent.py          # Finance-specific logic & traits
+│       ├── legalagent.py            # Legal risk assessment logic
+│       ├── opsagent.py              # Ops + technical issue response
+│       └── pragent.py               # PR & media sentiment strategy
 ├── cases/
-│ └── test_cases.yaml # Example crisis situations
+│   └── test_cases.yaml              # Example crisis situations
 ├── memory/
-│ ├── summarizer.py # Summarize past memory entries
-│ ├── vector_memory.py # Memory wrapper per agent
-│ └── vector_store_chroma.py # Backend: ChromaDB integration
+│   ├── summarizer.py                # Summarize past memory entries
+│   ├── vector_memory.py             # Memory wrapper per agent
+│   └── vector_store_chroma.py      # Backend: ChromaDB integration
 ├── orchestrator/
-│ ├── crisis.py         # Coordinates multi-agent responses
-│ └── deliberation.py   # Multi-agent debate & consensus controller
+│   ├── action_extractor.py         # Extracts executable actions from proposal
+│   ├── crisis.py                   # Coordinates multi-agent responses
+│   ├── deliberation.py             # Multi-agent debate & consensus controller
+│   └── executor.py                 # Executes assigned actions via agents
 ├── services/
-│ └── llm_client.py # OpenAI wrapper (chat & stream)
-├── config.py # ✅ Loads .env config vars
-├── run_demo.py # ✅ CLI runner for local testing
+│   └── llm_client.py               # OpenAI wrapper (chat & stream)
+├── config.py                       # Loads .env config vars
+├── run_demo.py                     # CLI runner for local testing
 ```
 
 ## ⚙️ Setup

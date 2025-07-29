@@ -34,9 +34,12 @@ async def run_demo(case_id=None):
     
     async for result in orchestrator.run(selected["description"]):
         # Bỏ qua stream để không in từng chữ
-        if (
-            result["type"].startswith("stream_")
-        ): continue
+        if result["type"].startswith("stream_"):
+            continue  # vẫn skip các chunk nhỏ trong phản biện
+        elif result["type"] in {"action_extraction", "action_execution", "final_proposal", "final_fallback_summary"}:
+            print(f"🟡 {result['text']}")
+            log_buffer.append(result['text'])
+            continue
         
         prefix = f"\n🔹 [{result['type']}] {result['agent']}:"
         output = f"{prefix}\n{result['text']}\n" + "-" * 50

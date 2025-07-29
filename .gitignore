@@ -32,7 +32,7 @@ venv/
 
 # ⚙️ Logs & temporary files
 *.log
-*.logs/
+*.logs
 *.tmp
 .DS_Store
 Thumbs.db

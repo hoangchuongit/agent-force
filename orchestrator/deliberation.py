@@ -3,6 +3,8 @@ from agents.roles.pragent import PRAgent
 from agents.roles.legalagent import LegalAgent
 from agents.roles.financeagent import FinanceAgent
 from agents.roles.opsagent import OpsAgent
+from orchestrator.action_extractor import extract_actions_stream
+from orchestrator.executor import execute_actions_stream
 
 class DeliberationOrchestrator:
     CONSENSUS_PHRASE = "tôi đồng thuận với các ý kiến trên."
@@ -93,14 +95,27 @@ class DeliberationOrchestrator:
                         "type": "final_decision"
                     }
                     
-                    # 👉 Gọi thêm bước tổng hợp từ các phản hồi trước đó
+                    # 1. Tổng hợp bản đề xuất
+                    final_proposal = ""
                     async for chunk in self.summarize_final_proposal(opinions):
-                        yield {
-                            "agent": "orchestrator",
-                            "text": chunk,
-                            "type": "final_proposal"
-                        }
-                    return
+                        final_proposal += chunk
+                        yield {"agent": "orchestrator", "text": chunk, "type": "final_proposal"}
+
+                    # 2. Trích xuất hành động từ final_proposal
+                    action_buffer = ""  # ✅ Khởi tạo trước khi sử dụng
+                    async for chunk in extract_actions_stream(self.llm_client, final_proposal):
+                        action_buffer += chunk
+                        yield {"agent": "orchestrator", "text": chunk, "type": "action_extraction"}
+
+                    try:
+                        actions = eval(action_buffer)
+                    except Exception as e:
+                        yield {"agent": "orchestrator", "text": f"❌ Lỗi parse actions: {e}", "type": "error"}
+                        return
+
+                    # 3. Thực thi hành động qua agent tương ứng
+                    async for chunk in execute_actions_stream(self.llm_client, actions):
+                        yield {"agent": "orchestrator", "text": chunk, "type": "action_execution"}
 
                 opinions = round_reviews.copy()
 
@@ -130,12 +145,29 @@ class DeliberationOrchestrator:
         
         # Gọi synthesize fallback nếu có opinions
         if opinions:
+            fallback_proposal = ""
             async for chunk in self.synthesize_best_effort(opinions):
+                fallback_proposal += chunk
                 yield {
                     "agent": "orchestrator",
                     "text": chunk,
                     "type": "final_fallback_summary"
                 }
+
+            # 👉 Phân tích hành động từ fallback_proposal
+            action_buffer = ""  # ✅ Cũng cần khởi tạo tại đây
+            async for chunk in extract_actions_stream(self.llm_client, fallback_proposal):
+                action_buffer += chunk
+                yield {"agent": "orchestrator", "text": chunk, "type": "action_extraction"}
+
+            try:
+                actions = eval(action_buffer)
+            except Exception as e:
+                yield {"agent": "orchestrator", "text": f"❌ Lỗi parse fallback actions: {e}", "type": "error"}
+                return
+
+            async for chunk in execute_actions_stream(self.llm_client, actions):
+                yield {"agent": "orchestrator", "text": chunk, "type": "action_execution"}
         
     async def summarize_final_proposal(self, opinions: dict) -> str:
         merged = "\n\n".join([f"{agent}:\n{content}" for agent, content in opinions.items()])
