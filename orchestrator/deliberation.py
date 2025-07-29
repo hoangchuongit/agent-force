@@ -14,37 +14,26 @@ class DeliberationOrchestrator:
 
     def __init__(self, llm_client):
         self.llm_client = llm_client
-        self.primary_agents = [
+        self.core_agents = [
             PRAgent(llm_client),
             LegalAgent(llm_client),
             FinanceAgent(llm_client),
             OpsAgent(llm_client),
         ]
         self.critical_agent = CriticalAgent(llm_client)
-        self.agents = self.primary_agents + [self.critical_agent]
+
+        self.agents = self.core_agents + [self.critical_agent]  # Critical luôn phản biện nhưng không lead sớm
 
         default_goals = GoalManager.get_default_goals()
         for agent in self.agents:
-            agent.set_goal(default_goals.get(agent.name, ""))
+            agent_key = type(agent).__name__
+            agent.set_goal(default_goals.get(agent_key, ""))
 
     def score_agents(self, context: str):
         context_lower = context.lower()
-        keyword_map = {
-            "PRAgent": [
-                "truyền thông", "khách hàng", "dư luận", "báo chí", "phản hồi", "tuyên bố", "xin lỗi",
-            ],
-            "LegalAgent": [
-                "pháp lý", "vi phạm", "luật", "quy định", "trách nhiệm", "kiện tụng", "tuân thủ",
-            ],
-            "FinanceAgent": [
-                "tài chính", "tiền", "thiệt hại", "bồi thường", "báo cáo", "chi phí", "lỗ", "doanh thu",
-            ],
-            "OpsAgent": [
-                "hệ thống", "vận hành", "sự cố", "hạ tầng", "rò rỉ", "server", "kỹ thuật", "khắc phục",
-            ],
-        }
+        keyword_map = GoalManager.KEYWORD_GOALS
         scores = []
-        for agent in self.primary_agents:
+        for agent in self.core_agents:
             agent_key = type(agent).__name__
             keywords = keyword_map.get(agent_key, [])
             score = sum(1 for kw in keywords if kw in context_lower)
@@ -54,21 +43,26 @@ class DeliberationOrchestrator:
     async def run(self, context: str, max_rounds: int = 10, max_cycles: int = 5):
         goals = GoalManager.extract_goals_from_context(context)
         for agent in self.agents:
-            new_goal = goals.get(agent.name)
+            agent_key = type(agent).__name__
+            new_goal = goals.get(agent_key)
             if new_goal:
                 agent.set_goal(new_goal)
 
         agent_scores = self.score_agents(context)
         tried_agents = set()
         cycle = 0
-
         soft_consensus_streak = 0
 
         while cycle < max_cycles:
-            lead_agent = next((a for a, _ in agent_scores if a.name not in tried_agents), None)
+            lead_agent = next((a for a, _ in agent_scores if type(a).__name__ not in tried_agents), None)
+
+            # Sau 3 chu kỳ → cho phép CriticalAgent làm lead nếu chưa thử
+            if not lead_agent and cycle >= 3 and type(self.critical_agent).__name__ not in tried_agents:
+                lead_agent = self.critical_agent
+
             if not lead_agent:
                 break
-            tried_agents.add(lead_agent.name)
+            tried_agents.add(type(lead_agent).__name__)
             cycle += 1
 
             context_with_goal = lead_agent.get_goal_context() + context
@@ -134,7 +128,6 @@ class DeliberationOrchestrator:
                         "text": f"✅ Đạt soft consensus sau 2 vòng liên tiếp.",
                         "type": "soft_consensus_reached",
                     }
-
                     async for chunk in self._finalize(merged_opinion):
                         yield chunk
                     return
@@ -173,9 +166,26 @@ class DeliberationOrchestrator:
         async for chunk in self._finalize(fallback_proposal):
             yield chunk
 
+    async def summarize_final_proposal(self, opinions: dict) -> str:
+        merged = "\n\n".join([f"{agent}:\n{content}" for agent, content in opinions.items()])
+        prompt = (
+            "Tình huống: Các bộ phận chuyên môn đã hoàn toàn đồng thuận sau nhiều vòng phản biện.\n"
+            "Dưới đây là các ý kiến cuối cùng của từng bộ phận:\n\n"
+            f"{merged}\n\n"
+            "🎯 Yêu cầu:\n"
+            "- Tổng hợp các ý kiến trên thành **một bản đề xuất hành động thống nhất**.\n"
+            "- Ngắn gọn, rõ ràng, mang tính thực thi cao.\n"
+            "- Dùng giọng văn chuyên nghiệp, nhất quán, phù hợp để gửi cho khách hàng, đối tác hoặc công bố nội bộ.\n"
+            "- Tránh lặp lại, không liệt kê theo agent. Không cần nói 'PRAgent nói rằng...'\n"
+            "- Nếu phù hợp, hãy viết dưới dạng thông báo chính thức hoặc email dự thảo.\n\n"
+            "✍️ Bắt đầu bản đề xuất:"
+        )
+        yield "📄 Bản đề xuất thống nhất:\n"
+        async for chunk in self.llm_client.chat_stream(prompt):
+            yield chunk
+
     async def synthesize_best_effort(self, opinions: dict) -> str:
         merged = "\n\n".join(f"{agent}:\n{text}" for agent, text in opinions.items())
-
         prompt = (
             "Bối cảnh: Hệ thống AI gồm nhiều bộ phận chuyên môn (PR, Pháp lý, Tài chính, Vận hành) đã tranh luận nhiều vòng nhưng **không đạt được đồng thuận hoàn toàn**.\n"
             "Dưới đây là các ý kiến cuối cùng của từng bộ phận:\n\n"
@@ -188,7 +198,6 @@ class DeliberationOrchestrator:
             "- Nếu cần, phân tách thành các phần: Tình hình – Hành động – Khuyến nghị.\n\n"
             "✍️ Bắt đầu viết bản đề xuất:"
         )
-
         yield "📄 Bản đề xuất tổng hợp (fallback):\n"
         async for chunk in self.llm_client.chat_stream(prompt):
             yield chunk

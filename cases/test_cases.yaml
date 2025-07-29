@@ -1,11 +1,11 @@
 
-- id: case_01
-  title: Rò rỉ dữ liệu khách hàng
-  description: Thông tin của 10.000 khách hàng bị leak lên mạng darknet.
+# - id: case_01
+#   title: Rò rỉ dữ liệu khách hàng
+#   description: Thông tin của 10.000 khách hàng bị leak lên mạng darknet.
 
-# - id: case_02
-#   title: Hacker tấn công hệ thống
-#   description: Hệ thống thanh toán bị hacker làm gián đoạn 2 giờ, gây gián đoạn giao dịch.
+- id: case_02
+  title: Hacker tấn công hệ thống
+  description: Hệ thống thanh toán bị hacker làm gián đoạn 2 giờ, gây gián đoạn giao dịch.
 
 # - id: case_03
 #   title: Khách hàng dọa kiện
